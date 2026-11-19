@@ -45,6 +45,16 @@ function isFiniteNumber(value) {
   return value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
 }
 
+function shouldTriggerAlarm(value, minimum, maximum) {
+  const min = minimum === null || minimum === undefined ? null : Number(minimum);
+  const max = maximum === null || maximum === undefined ? null : Number(maximum);
+
+  if (min !== null && max === null) return value > min;
+  if (min === null && max !== null) return value < max;
+  if (min !== null && max !== null) return value < min || value > max;
+  return false;
+}
+
 router.get("/", async (_req, res) => {
   try {
     const [rows] = await pool.query(`${measurementSelect} ${newestFirst}`);
@@ -90,14 +100,69 @@ router.post("/", async (req, res) => {
       Number(voc),
       Number(nox),
     ];
-    const [result] = await pool.query(
-      `INSERT INTO mediciones (
-        id_dispositivo, fecha_medicion, hora_medicion, temperatura, humedad,
-        co2_ppm, co_ppm, voc_ppb, nox_ppb
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      values
-    );
-    res.status(201).json({ ok: true, id_medicion: result.insertId });
+
+    const measurementByVariable = {
+      co2: Number(co2),
+      co: Number(co),
+      voc: Number(voc),
+      nox: Number(nox),
+      temperatura: Number(temperatura),
+      humedad: Number(humedad),
+    };
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [result] = await connection.execute(
+        `INSERT INTO mediciones (
+          id_dispositivo, fecha_medicion, hora_medicion, temperatura, humedad,
+          co2_ppm, co_ppm, voc_ppb, nox_ppb
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        values
+      );
+
+      const [alarmConfigs] = await connection.execute(
+        `SELECT id_config_alarma, nombre_variable, valor_minimo, valor_maximo
+         FROM configuraciones_alarmas
+         WHERE esta_activa = 1
+           AND (id_dispositivo = ? OR id_dispositivo IS NULL)
+           AND nombre_variable IN ('co2', 'co', 'voc', 'nox', 'temperatura', 'humedad')`,
+        [deviceId]
+      );
+
+      const events = alarmConfigs
+        .filter((config) =>
+          shouldTriggerAlarm(
+            measurementByVariable[config.nombre_variable],
+            config.valor_minimo,
+            config.valor_maximo
+          )
+        )
+        .map((config) => [
+          config.id_config_alarma,
+          result.insertId,
+          deviceId,
+          config.nombre_variable,
+          measurementByVariable[config.nombre_variable],
+        ]);
+
+      if (events.length > 0) {
+        await connection.query(
+          `INSERT INTO eventos_alarma (
+            id_config_alarma, id_medicion, id_dispositivo, nombre_variable, valor
+          ) VALUES ?`,
+          [events]
+        );
+      }
+
+      await connection.commit();
+      res.status(201).json({ ok: true, id_medicion: result.insertId });
+    } catch (error) {
+      await connection.rollback().catch(() => {});
+      throw error;
+    } finally {
+      connection.release();
+    }
   } catch (error) {
     console.error("Error guardando medición:", error);
     res.status(500).json({ message: "No se pudo guardar la medición" });

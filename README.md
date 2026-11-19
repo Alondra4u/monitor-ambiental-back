@@ -42,6 +42,8 @@ Todas las respuestas de consulta son JSON. Las mediciones se devuelven de la má
 
 Si defines `INGEST_API_TOKEN`, el sensor también debe enviar `Authorization: Bearer <token>`. La variable es opcional para conservar compatibilidad con la configuración actual.
 
+Después de guardar cada medición, la API evalúa las configuraciones de alarma activas para ese dispositivo y registra los eventos que cruzan sus límites, dentro de la misma transacción. Esto reemplaza el trigger de MySQL, porque TiDB Cloud Starter no admite triggers.
+
 ### Configurar una alarma
 
 `POST /api/alarmas` acepta `station` (`Rural` o `Urbana`), `parameter` (`CO2`, `CO`, `NOx`, `VOC`, `Temperatura` o `Humedad`), `operator` (`>` o `<`), `threshold` y opcionalmente `nivel_severidad` (`1`, `2` o `3`) y `enabled` (booleano). El esquema de base de datos guarda límites mínimo/máximo y no conserva operadores inclusivos, por eso la API solo acepta `>` y `<`. Si se omite `id_dispositivo`, la API selecciona un dispositivo activo de la estación indicada. Guardar una regla para el mismo dispositivo y variable actualiza la existente.
