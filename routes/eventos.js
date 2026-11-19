@@ -3,8 +3,17 @@ import { pool } from "../db.js";
 
 const router = Router();
 
-router.get("/activos", async (_req, res) => {
+router.get("/activos", async (req, res) => {
   try {
+    const requestedLimit = Number.parseInt(String(req.query.limit ?? "50"), 10);
+    const requestedOffset = Number.parseInt(String(req.query.offset ?? "0"), 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 50)
+      : 50;
+    const offset = Number.isFinite(requestedOffset)
+      ? Math.max(requestedOffset, 0)
+      : 0;
+
     const [rows] = await pool.query(`
       SELECT
         e.id_evento_alarma,
@@ -20,8 +29,14 @@ router.get("/activos", async (_req, res) => {
       LEFT JOIN dispositivos d ON e.id_dispositivo = d.id_dispositivo
       WHERE e.estatus = 'ACTIVA'
       ORDER BY e.fecha_disparo DESC
-    `);
-    res.json(rows);
+      LIMIT ? OFFSET ?
+    `, [limit + 1, offset]);
+    res.json({
+      items: rows.slice(0, limit),
+      hasMore: rows.length > limit,
+      limit,
+      offset,
+    });
   } catch (error) {
     console.error("Error consultando eventos de alarma activos:", error);
     res.status(500).json({ message: "No se pudieron consultar las alarmas activas" });
