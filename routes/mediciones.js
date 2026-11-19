@@ -169,6 +169,41 @@ router.post("/", async (req, res) => {
   }
 });
 
+// Dashboard payload: bounded recent rows plus daily averages, regardless of
+// whether the sensor has sent a reading in the last hour.
+router.get("/dashboard", async (_req, res) => {
+  try {
+    const [registros, promedios] = await Promise.all([
+      pool.query(`${measurementSelect} ${newestFirst} LIMIT 50`),
+      pool.query(`
+        SELECT
+          m.fecha_medicion AS fecha,
+          z.tipo AS estacion,
+          AVG(m.co2_ppm) AS co2
+        FROM mediciones m
+        JOIN dispositivos d ON m.id_dispositivo = d.id_dispositivo
+        JOIN zonas z ON d.id_zona = z.id_zona
+        WHERE m.fecha_medicion IN (
+          SELECT fecha_medicion
+          FROM (
+            SELECT DISTINCT fecha_medicion
+            FROM mediciones
+            ORDER BY fecha_medicion DESC
+            LIMIT 5
+          ) AS dias_recientes
+        )
+        GROUP BY m.fecha_medicion, z.tipo
+        ORDER BY m.fecha_medicion ASC
+      `),
+    ]);
+
+    res.json({ registros: registros[0], promedios: promedios[0] });
+  } catch (error) {
+    console.error("Error consultando datos del dashboard:", error);
+    res.status(500).json({ message: "No se pudieron consultar los datos del dashboard" });
+  }
+});
+
 router.get("/ultimahora", async (_req, res) => {
   try {
     const cutoff = getMexicoTimestamp(new Date(Date.now() - 60 * 60 * 1000));
