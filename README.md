@@ -2,6 +2,11 @@
 
 API REST para recibir mediciones de los sensores y consultar el historial y las alarmas. Está construida con Node.js, Express y MySQL.
 
+## API desplegada
+
+- **URL base:** https://monitor-ambiental-back.onrender.com
+- **Estado de la API y la base de datos:** https://monitor-ambiental-back.onrender.com/health
+
 ## Endpoints
 
 Todas las respuestas de consulta son JSON. Las mediciones se devuelven de la más reciente a la más antigua.
