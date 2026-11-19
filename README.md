@@ -59,6 +59,6 @@ Completa `.env` con las credenciales de la base de datos y ejecuta `npm run dev`
 
 ## Despliegue
 
-En Render usa un Web Service con build command `npm install` y start command `npm start`. Configura las variables de base de datos, `FRONTEND_ORIGINS` con el origen publicado del frontend, y opcionalmente `INGEST_API_TOKEN`. `DB_SSL=true` usa el certificado `ca.pem` incluido.
+En Render usa un Web Service con build command `npm install` y start command `npm start`. Configura las variables de base de datos, `FRONTEND_ORIGINS` con el origen publicado del frontend, y opcionalmente `INGEST_API_TOKEN`. `DB_SSL=true` habilita TLS. `DB_SSL_CA_PATH=ca.pem` usa el certificado incluido de Aiven; `DB_SSL_CA_PATH=system` usa las autoridades raíz del sistema, apropiado para TiDB Cloud Starter.
 
 `GET` es de solo lectura, pero la administración de alarmas todavía no tiene autenticación. CORS limita los orígenes de navegador permitidos; no sustituye autenticación. Antes de exponer públicamente la administración, agrega inicio de sesión o una capa de autorización adecuada.

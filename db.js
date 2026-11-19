@@ -5,6 +5,12 @@ import mysql from "mysql2/promise";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const sslEnabled = process.env.DB_SSL !== "false";
+const caPath = process.env.DB_SSL_CA_PATH?.trim() || "ca.pem";
+const ssl = !sslEnabled
+  ? undefined
+  : caPath.toLowerCase() === "system"
+    ? {}
+    : { ca: fs.readFileSync(path.resolve(here, caPath)) };
 
 export const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -17,5 +23,5 @@ export const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
 
-  ssl: sslEnabled ? { ca: fs.readFileSync(path.join(here, "ca.pem")) } : undefined,
+  ssl,
 });
